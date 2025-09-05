@@ -18,6 +18,7 @@ import Notifications from './pages/Notifications';
 import Orcamentos from './pages/Orcamentos';
 import Relatorios from './pages/Relatorios';
 import 'dayjs/locale/pt-br';
+import Perfil from './pages/Perfil';
 
 // Criar instância do QueryClient
 const queryClient = new QueryClient({
@@ -185,7 +186,7 @@ const AppContent: React.FC = () => {
           path="/perfil" 
           element={
             <ProtectedRoute>
-              <div>Meu Perfil (Em desenvolvimento)</div>
+              <Perfil defaultTab="perfil" />
             </ProtectedRoute>
           } 
         />
@@ -195,7 +196,7 @@ const AppContent: React.FC = () => {
           path="/configuracoes" 
           element={
             <ProtectedRoute>
-              <div>Configurações (Em desenvolvimento)</div>
+              <Perfil defaultTab="config" />
             </ProtectedRoute>
           } 
         />

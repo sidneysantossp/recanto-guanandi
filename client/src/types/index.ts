@@ -396,3 +396,14 @@ export interface CreateProviderForm {
   endereco?: Provider['endereco'];
   ativo?: boolean;
 }
+
+// Tipos auxiliares para formulário de perfil
+export interface UpdateProfilePayload {
+  nome?: string;
+  email?: string;
+}
+
+export interface ChangePasswordPayload {
+  senhaAtual: string;
+  novaSenha: string;
+}

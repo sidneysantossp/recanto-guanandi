@@ -94,7 +94,7 @@ class ApiService {
   }
 
   async updateProfile(data: Partial<User>): Promise<ApiResponse<User>> {
-    const response: AxiosResponse<ApiResponse<User>> = await this.api.put('/auth/profile', data);
+    const response: AxiosResponse<ApiResponse<User>> = await this.api.put('/auth/update-profile', data);
     return response.data;
   }
 
