@@ -41,7 +41,7 @@ if (useMongo && !global._mongooseConnected) {
 
 // Injeta prisma no request para controllers já migrarem gradualmente
 app.use((req, res, next) => {
-  if (prisma) req.prisma = prisma;
+  if (hasPrisma) req.prisma = prisma;
   next();
 });
 
