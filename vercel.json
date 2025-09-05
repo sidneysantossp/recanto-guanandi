@@ -9,7 +9,16 @@
     { "src": "client/package.json", "use": "@vercel/static-build", "config": { "distDir": "build" } }
   ],
   "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "src": "^/static/(.*)", "dest": "/client/static/$1" },
+    { "src": "/(.*)\\.png", "dest": "/client/$1.png" },
+    { "src": "/(.*)\\.jpg", "dest": "/client/$1.jpg" },
+    { "src": "/(.*)\\.jpeg", "dest": "/client/$1.jpeg" },
+    { "src": "/(.*)\\.ico", "dest": "/client/$1.ico" },
+    { "src": "/(.*)\\.svg", "dest": "/client/$1.svg" },
+    { "src": "/(.*)\\.txt", "dest": "/client/$1.txt" },
+    { "src": "/(.*)\\.json", "dest": "/client/$1.json" },
+    { "src": "/(.*)\\.css", "dest": "/client/$1.css" },
+    { "src": "/(.*)\\.js", "dest": "/client/$1.js" },
+    { "src": "/(.*)", "dest": "/client/index.html" }
   ]
 }
