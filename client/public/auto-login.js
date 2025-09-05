@@ -14,7 +14,7 @@
     };
 
     // Porta atualizada para corresponder ao backend em execução
-    fetch('http://localhost:5001/api/auth/login', {
+    fetch('/api/auth/login', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
