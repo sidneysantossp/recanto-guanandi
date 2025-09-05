@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test Login</title>
+</head>
+<body>
+  <h1>Teste de Login</h1>
+  <script>
+    const loginData = { email: 'admin@test.com', senha: '123456' };
+    fetch('http://localhost:5001/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginData)
+    })
+    .then(r => r.json())
+    .then(data => {
+      console.log('Resposta:', data);
+      if (data.success) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        alert('Login OK');
+      } else {
+        alert('Falhou: ' + (data.message || 'Erro no login'));
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Erro de rede: ' + err.message);
+    });
+  </script>
+</body>
+</html>
