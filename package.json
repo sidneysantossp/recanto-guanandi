@@ -9,7 +9,12 @@
     "client": "cd client && npm start",
     "server": "nodemon server.js",
     "build": "cd client && npm run build",
-    "heroku-postbuild": "cd client && npm install && npm run build"
+    "heroku-postbuild": "cd client && npm install && npm run build",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:push": "prisma db push"
   },
   "keywords": [
     "financial",
@@ -32,9 +37,11 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.4",
     "uuid": "^9.0.0",
-    "serverless-http": "^3.2.0"
+    "serverless-http": "^3.2.0",
+    "@prisma/client": "^5.16.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "prisma": "^5.16.1"
   }
 }

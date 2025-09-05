@@ -14,8 +14,24 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key');
+
+    // Se Prisma estiver disponível, usar Postgres
+    if (req.prisma) {
+      const prisma = req.prisma;
+      const user = await prisma.user.findUnique({ where: { id: decoded.user.id } });
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'Token inválido - usuário não encontrado' });
+      }
+      if (user.situacao === 'inativo') {
+        return res.status(401).json({ success: false, message: 'Usuário inativo' });
+      }
+      // Normalizar req.user para conter id e _id (compatibilidade)
+      req.user = { ...user, _id: user.id };
+      return next();
+    }
+
+    // Fallback Mongo
     const user = await User.findById(decoded.user.id).select('-senha');
-    
     if (!user) {
       return res.status(401).json({ 
         success: false, 
@@ -81,8 +97,9 @@ const proprietarioAuth = (req, res, next) => {
 // Middleware para verificar se pode acessar dados de um usuário específico
 const ownerOrAdmin = (req, res, next) => {
   const userId = req.params.id || req.params.userId;
+  const currentId = (req.user && (req.user.id || req.user._id?.toString())) || '';
   
-  if (req.user.tipo === 'admin' || req.user._id.toString() === userId) {
+  if (req.user.tipo === 'admin' || currentId === userId) {
     return next();
   }
   

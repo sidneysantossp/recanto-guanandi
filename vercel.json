@@ -4,9 +4,7 @@
   "framework": "create-react-app",
   "buildCommand": "npm run build",
   "outputDirectory": "client/build",
-  "rootDirectory": "client",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api).*)", "destination": "/index.html" }
   ]
 }
