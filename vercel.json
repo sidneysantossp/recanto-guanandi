@@ -7,7 +7,7 @@
   "outputDirectory": "client/build",
   "functions": {
     "api/**/*.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs20.x"
     }
   },
   "rewrites": [
