@@ -1,9 +1,13 @@
 const express = require('express');
-const Boleto = require('../models/Boleto');
-const User = require('../models/User');
-const { auth, adminAuth } = require('../middleware/auth');
-
 const router = express.Router();
+const { auth, adminAuth } = require('../middleware/auth');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+// Função auxiliar para calcular valor total do boleto
+function calcularValorTotal(boleto) {
+  return boleto.valor + (boleto.valorJuros || 0) + (boleto.valorMulta || 0) - (boleto.valorDesconto || 0);
+}
 
 // @route   GET /api/reports/financial
 // @desc    Relatório financeiro geral
@@ -21,32 +25,55 @@ router.get('/financial', auth, adminAuth, async (req, res) => {
     const fimMes = new Date(anoConsulta, mesConsulta + 1, 0, 23, 59, 59, 999);
     
     // Boletos do período
-    const boletosPeriodo = await Boleto.find({
-      dataVencimento: { $gte: inicioMes, $lte: fimMes }
-    }).populate('proprietario', 'nome email situacao');
+    const boletosPeriodo = await prisma.boleto.findMany({
+      where: {
+        dataVencimento: { gte: inicioMes, lte: fimMes }
+      },
+      include: {
+        proprietarioRel: {
+          select: { nome: true, email: true, situacao: true }
+        }
+      }
+    });
     
     // Boletos pagos no período
-    const boletosPagos = await Boleto.find({
-      status: 'pago',
-      dataPagamento: { $gte: inicioMes, $lte: fimMes }
-    }).populate('proprietario', 'nome email');
+    const boletosPagos = await prisma.boleto.findMany({
+      where: {
+        status: 'pago',
+        dataPagamento: { gte: inicioMes, lte: fimMes }
+      },
+      include: {
+        proprietarioRel: {
+          select: { nome: true, email: true }
+        }
+      }
+    });
+    
+    // Função para calcular valor total do boleto
+    const calcularValorTotal = (boleto) => {
+      const valor = parseFloat(boleto.valor);
+      const juros = parseFloat(boleto.valorJuros || 0);
+      const multa = parseFloat(boleto.valorMulta || 0);
+      const desconto = parseFloat(boleto.valorDesconto || 0);
+      return valor + juros + multa - desconto;
+    };
     
     // Cálculos
     const valorTotalEmitido = boletosPeriodo.reduce((total, boleto) => {
-      return total + boleto.calcularValorTotal();
+      return total + calcularValorTotal(boleto);
     }, 0);
     
     const valorTotalArrecadado = boletosPagos.reduce((total, boleto) => {
-      return total + boleto.calcularValorTotal();
+      return total + calcularValorTotal(boleto);
     }, 0);
     
     const valorEmAberto = boletosPeriodo
       .filter(b => ['pendente', 'vencido'].includes(b.status))
-      .reduce((total, boleto) => total + boleto.calcularValorTotal(), 0);
+      .reduce((total, boleto) => total + calcularValorTotal(boleto), 0);
     
     const valorVencido = boletosPeriodo
       .filter(b => b.status === 'vencido')
-      .reduce((total, boleto) => total + boleto.calcularValorTotal(), 0);
+      .reduce((total, boleto) => total + calcularValorTotal(boleto), 0);
     
     // Estatísticas por categoria
     const porCategoria = {};
@@ -58,19 +85,21 @@ router.get('/financial', auth, adminAuth, async (req, res) => {
           quantidade: 0
         };
       }
-      porCategoria[boleto.categoria].emitido += boleto.calcularValorTotal();
-      porCategoria[boleto.categoria].quantidade += 1;
-      
-      if (boleto.status === 'pago') {
-        porCategoria[boleto.categoria].arrecadado += boleto.calcularValorTotal();
-      }
+      porCategoria[boleto.categoria].emitido += calcularValorTotal(boleto);
+       porCategoria[boleto.categoria].quantidade += 1;
+       
+       if (boleto.status === 'pago') {
+         porCategoria[boleto.categoria].arrecadado += calcularValorTotal(boleto);
+       }
     });
     
     // Taxa de inadimplência
-    const totalProprietarios = await User.countDocuments({ tipo: 'proprietario' });
-    const proprietariosInadimplentes = await User.countDocuments({ 
-      tipo: 'proprietario', 
-      situacao: 'inadimplente' 
+    const totalProprietarios = await prisma.user.count({ where: { tipo: 'proprietario' } });
+    const proprietariosInadimplentes = await prisma.user.count({ 
+      where: { 
+        tipo: 'proprietario', 
+        situacao: 'inadimplente' 
+      }
     });
     
     const taxaInadimplencia = totalProprietarios > 0 ? 
@@ -124,22 +153,35 @@ router.get('/financial', auth, adminAuth, async (req, res) => {
 router.get('/inadimplencia', auth, adminAuth, async (req, res) => {
   try {
     // Proprietários inadimplentes
-    const proprietariosInadimplentes = await User.find({
-      tipo: 'proprietario',
-      situacao: 'inadimplente'
-    }).select('nome email cpf telefone endereco');
+    const proprietariosInadimplentes = await prisma.user.findMany({
+      where: {
+        tipo: 'proprietario',
+        situacao: 'inadimplente'
+      },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        cpf: true,
+        telefone: true,
+        endereco: true
+      }
+    });
     
     // Boletos em aberto por proprietário
     const relatorioInadimplencia = [];
     
     for (const proprietario of proprietariosInadimplentes) {
-      const boletosEmAberto = await Boleto.find({
-        proprietario: proprietario._id,
-        status: { $in: ['pendente', 'vencido'] }
-      }).sort({ dataVencimento: 1 });
+      const boletosEmAberto = await prisma.boleto.findMany({
+        where: {
+          proprietario: proprietario.id,
+          status: { in: ['pendente', 'vencido'] }
+        },
+        orderBy: { dataVencimento: 'asc' }
+      });
       
       const valorTotal = boletosEmAberto.reduce((total, boleto) => {
-        return total + boleto.calcularValorTotal();
+        return total + calcularValorTotal(boleto);
       }, 0);
       
       const maisAntigo = boletosEmAberto.length > 0 ? boletosEmAberto[0].dataVencimento : null;
@@ -206,10 +248,17 @@ router.get('/arrecadacao', auth, adminAuth, async (req, res) => {
     }
     
     // Buscar boletos pagos no período
-    const boletosPagos = await Boleto.find({
-      status: 'pago',
-      dataPagamento: { $gte: inicioPeriodo, $lte: fimPeriodo }
-    }).populate('proprietario', 'nome');
+    const boletosPagos = await prisma.boleto.findMany({
+      where: {
+        status: 'pago',
+        dataPagamento: { gte: inicioPeriodo, lte: fimPeriodo }
+      },
+      include: {
+        proprietarioRel: {
+          select: { nome: true }
+        }
+      }
+    });
     
     // Agrupar por período
     const arrecadacaoPorPeriodo = {};
@@ -235,7 +284,7 @@ router.get('/arrecadacao', auth, adminAuth, async (req, res) => {
         };
       }
       
-      const valorBoleto = boleto.calcularValorTotal();
+      const valorBoleto = calcularValorTotal(boleto);
       arrecadacaoPorPeriodo[chave].valor += valorBoleto;
       arrecadacaoPorPeriodo[chave].quantidade += 1;
       
@@ -297,14 +346,16 @@ router.get('/proprietario/:id', auth, async (req, res) => {
     const proprietarioId = req.params.id;
     
     // Verificar permissão
-    if (req.user.tipo !== 'admin' && req.user._id.toString() !== proprietarioId) {
+    if (req.user.tipo !== 'admin' && req.user.id !== proprietarioId) {
       return res.status(403).json({
         success: false,
         message: 'Acesso negado'
       });
     }
     
-    const proprietario = await User.findById(proprietarioId);
+    const proprietario = await prisma.user.findUnique({
+      where: { id: proprietarioId }
+    });
     if (!proprietario || proprietario.tipo !== 'proprietario') {
       return res.status(404).json({
         success: false,
@@ -313,8 +364,10 @@ router.get('/proprietario/:id', auth, async (req, res) => {
     }
     
     // Buscar todos os boletos do proprietário
-    const todosBoletos = await Boleto.find({ proprietario: proprietarioId })
-      .sort({ dataVencimento: -1 });
+    const todosBoletos = await prisma.boleto.findMany({
+      where: { proprietario: proprietarioId },
+      orderBy: { dataVencimento: 'desc' }
+    });
     
     // Separar por status
     const boletosPagos = todosBoletos.filter(b => b.status === 'pago');
@@ -323,15 +376,15 @@ router.get('/proprietario/:id', auth, async (req, res) => {
     
     // Calcular valores
     const valorTotalPago = boletosPagos.reduce((total, boleto) => {
-      return total + boleto.calcularValorTotal();
+      return total + calcularValorTotal(boleto);
     }, 0);
     
     const valorEmAberto = boletosEmAberto.reduce((total, boleto) => {
-      return total + boleto.calcularValorTotal();
+      return total + calcularValorTotal(boleto);
     }, 0);
     
     const valorVencido = boletosVencidos.reduce((total, boleto) => {
-      return total + boleto.calcularValorTotal();
+      return total + calcularValorTotal(boleto);
     }, 0);
     
     // Histórico de pagamentos (últimos 12 meses)
@@ -345,7 +398,15 @@ router.get('/proprietario/:id', auth, async (req, res) => {
     res.json({
       success: true,
       data: {
-        proprietario: proprietario.getDadosPublicos(),
+        proprietario: {
+          id: proprietario.id,
+          nome: proprietario.nome,
+          email: proprietario.email,
+          cpf: proprietario.cpf,
+          telefone: proprietario.telefone,
+          endereco: proprietario.endereco,
+          situacao: proprietario.situacao
+        },
         resumo: {
           totalBoletos: todosBoletos.length,
           boletosPagos: boletosPagos.length,

@@ -3,10 +3,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
+// Enums
 enum UserTipo {
   admin
   proprietario
@@ -18,6 +19,76 @@ enum Situacao {
   inadimplente
 }
 
+enum BoletoStatus {
+  pendente
+  pago
+  vencido
+  cancelado
+}
+
+enum TipoPagamento {
+  boleto
+  pix
+  dinheiro
+  transferencia
+  cartao
+}
+
+enum CategoriaBoleto {
+  taxa_condominio
+  taxa_extra
+  multa
+  obra
+  manutencao
+  outros
+}
+
+enum BudgetStatus {
+  aberto
+  em_analise
+  aprovado
+  rejeitado
+  concluido
+}
+
+enum NotificationType {
+  comunicado
+  ata
+  assembleia
+  cobranca
+  manutencao
+  urgente
+}
+
+enum NotificationPriority {
+  baixa
+  media
+  alta
+  urgente
+}
+
+enum NotificationStatus {
+  rascunho
+  publicado
+  arquivado
+}
+
+enum DestinatarioTipo {
+  todos
+  especificos
+  inadimplentes
+  ativos
+}
+
+enum HistoricoTipo {
+  criado
+  status_alterado
+  comentario_adicionado
+  anexo_adicionado
+  atualizado
+}
+
+// Models
 model User {
   id              String    @id @default(uuid())
   nome            String
@@ -33,4 +104,230 @@ model User {
   notificacoes    Json?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  // Relacionamentos
+  boletos         Boleto[]
+  budgetsSolicitados Budget[] @relation("BudgetSolicitante")
+  budgetComentarios BudgetComentario[]
+  budgetHistorico BudgetHistorico[]
+  notificacoesAutor Notification[] @relation("NotificationAutor")
+  notificacoesDestinatario NotificationDestinatario[]
+  notificationVisualizacoes NotificationVisualizacao[]
+  notificationComentarios NotificationComentario[]
+
+  @@map("users")
+}
+
+model Company {
+  id         String   @id @default(uuid())
+  nome       String
+  cnpj       String?
+  email      String?
+  telefone   String?
+  endereco   Json?
+  categorias Json?
+  ativo      Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relacionamentos
+  budgets    Budget[]
+  providers  Provider[]
+
+  @@map("companies")
+}
+
+model Provider {
+  id              String   @id @default(uuid())
+  nome            String
+  cpfCnpj         String?
+  email           String?
+  telefone        String?
+  especialidades  Json?
+  empresaVinculada String?
+  endereco        Json?
+  ativo           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relacionamentos
+  company         Company? @relation(fields: [empresaVinculada], references: [id])
+  budgets         Budget[]
+
+  @@map("providers")
+}
+
+model Budget {
+  id            String        @id @default(uuid())
+  titulo        String
+  descricao     String        @db.Text
+  categoria     String
+  valorEstimado Float?
+  empresa       String?
+  prestador     String?
+  status        BudgetStatus  @default(aberto)
+  solicitante   String
+  dataAbertura  DateTime      @default(now())
+  dataFechamento DateTime?
+  observacoes   String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relacionamentos
+  companyRel    Company?      @relation(fields: [empresa], references: [id])
+  providerRel   Provider?     @relation(fields: [prestador], references: [id])
+  solicitanteRel User         @relation("BudgetSolicitante", fields: [solicitante], references: [id])
+  arquivos      BudgetArquivo[]
+  comentarios   BudgetComentario[]
+  historico     BudgetHistorico[]
+
+  @@map("budgets")
+}
+
+model BudgetArquivo {
+  id       String @id @default(uuid())
+  budgetId String
+  nome     String
+  url      String
+  tipo     String
+  tamanho  Int
+
+  budget   Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@map("budget_arquivos")
+}
+
+model BudgetComentario {
+  id       String   @id @default(uuid())
+  budgetId String
+  autor    String
+  conteudo String   @db.Text
+  criadoEm DateTime @default(now())
+
+  budget   Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  autorRel User   @relation(fields: [autor], references: [id])
+
+  @@map("budget_comentarios")
+}
+
+model BudgetHistorico {
+  id        String        @id @default(uuid())
+  budgetId  String
+  tipo      HistoricoTipo @default(atualizado)
+  descricao String?
+  usuario   String
+  data      DateTime      @default(now())
+  metadados Json?
+
+  budget    Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  usuarioRel User  @relation(fields: [usuario], references: [id])
+
+  @@map("budget_historico")
+}
+
+model Boleto {
+  id              String         @id @default(uuid())
+  numeroDocumento String         @unique
+  proprietario    String
+  descricao       String
+  valor           Float
+  dataVencimento  DateTime
+  dataEmissao     DateTime       @default(now())
+  dataPagamento   DateTime?
+  status          BoletoStatus   @default(pendente)
+  tipoPagamento   TipoPagamento  @default(boleto)
+  codigoBarras    String?
+  linhaDigitavel  String?
+  chavePix        String?
+  qrCodePix       String?        @db.Text
+  txidPix         String?
+  metodoPagamento TipoPagamento  @default(boleto)
+  categoria       CategoriaBoleto @default(taxa_condominio)
+  observacoes     String?        @db.Text
+  valorJuros      Float          @default(0)
+  valorMulta      Float          @default(0)
+  valorDesconto   Float          @default(0)
+  valorTotal      Float?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relacionamentos
+  proprietarioRel User           @relation(fields: [proprietario], references: [id])
+
+  @@map("boletos")
+}
+
+model Notification {
+  id              String               @id @default(uuid())
+  titulo          String
+  conteudo        String               @db.Text
+  tipo            NotificationType
+  prioridade      NotificationPriority @default(media)
+  autor           String
+  dataPublicacao  DateTime             @default(now())
+  dataExpiracao   DateTime?
+  status          NotificationStatus   @default(rascunho)
+  configuracoes   Json?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  // Relacionamentos
+  autorRel        User                 @relation("NotificationAutor", fields: [autor], references: [id])
+  anexos          NotificationAnexo[]
+  destinatarios   NotificationDestinatario[]
+  visualizacoes   NotificationVisualizacao[]
+  comentarios     NotificationComentario[]
+
+  @@map("notifications")
+}
+
+model NotificationAnexo {
+  id             String @id @default(uuid())
+  notificationId String
+  nome           String
+  url            String
+  tipo           String
+  tamanho        Int
+
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@map("notification_anexos")
+}
+
+model NotificationDestinatario {
+  id             String           @id @default(uuid())
+  notificationId String
+  tipo           DestinatarioTipo @default(todos)
+  usuario        String?
+
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  usuarioRel     User?        @relation(fields: [usuario], references: [id])
+
+  @@map("notification_destinatarios")
+}
+
+model NotificationVisualizacao {
+  id             String   @id @default(uuid())
+  notificationId String
+  usuario        String
+  visualizadoEm  DateTime @default(now())
+
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  usuarioRel     User         @relation(fields: [usuario], references: [id])
+
+  @@unique([notificationId, usuario])
+  @@map("notification_visualizacoes")
+}
+
+model NotificationComentario {
+  id             String   @id @default(uuid())
+  notificationId String
+  autor          String
+  conteudo       String   @db.Text
+  criadoEm       DateTime @default(now())
+
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  autorRel       User         @relation(fields: [autor], references: [id])
+
+  @@map("notification_comentarios")
 }

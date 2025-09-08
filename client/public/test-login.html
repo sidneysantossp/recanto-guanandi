@@ -1,34 +1,164 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Test Login</title>
+    <title>Teste de Login e LocalStorage</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        .info { background-color: #d1ecf1; }
+        button { padding: 10px 20px; margin: 5px; }
+        .credentials { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0; }
+    </style>
 </head>
 <body>
-  <h1>Teste de Login</h1>
-  <script>
-    const loginData = { email: 'admin@test.com', senha: '123456' };
-    fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(loginData)
-    })
-    .then(r => r.json())
-    .then(data => {
-      console.log('Resposta:', data);
-      if (data.success) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        alert('Login OK');
-      } else {
-        alert('Falhou: ' + (data.message || 'Erro no login'));
-      }
-    })
-    .catch(err => {
-      console.error(err);
-      alert('Erro de rede: ' + err.message);
-    });
-  </script>
+    <h1>Teste de Login e LocalStorage</h1>
+    
+    <div class="credentials">
+        <h3>Credenciais de Teste:</h3>
+        <p><strong>Email:</strong> admin@guanandi.com</p>
+        <p><strong>Senha:</strong> admin123</p>
+    </div>
+    
+    <div>
+        <button onclick="testLogin()">🔐 Testar Login</button>
+        <button onclick="checkLocalStorage()">💾 Verificar LocalStorage</button>
+        <button onclick="testLogout()">🚪 Testar Logout</button>
+        <button onclick="clearResults()">🧹 Limpar Resultados</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        function addResult(title, content, type = 'success') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'result ' + type;
+            resultDiv.innerHTML = `<h4>${title}</h4><pre>${content}</pre>`;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testLogin() {
+            addResult('🔐 Teste de Login', 'Iniciando teste de login...', 'info');
+            
+            try {
+                console.log('Fazendo requisição para: http://localhost:3000/api/auth/login');
+                
+                const response = await fetch('http://localhost:3000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@guanandi.com',
+                        senha: 'admin123'
+                    })
+                });
+                
+                console.log('Response status:', response.status);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (data.success && data.token) {
+                    addResult('✅ Login - SUCESSO', JSON.stringify(data, null, 2));
+                    
+                    // Simular o que o AuthContext faz
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    addResult('💾 LocalStorage', 'Token e usuário salvos com sucesso:\n' + 
+                        'Token: ' + data.token.substring(0, 50) + '...\n' +
+                        'User: ' + JSON.stringify(data.user, null, 2));
+                        
+                    // Verificar se foi salvo corretamente
+                    setTimeout(checkLocalStorage, 500);
+                } else {
+                    addResult('❌ Login - FALHA', JSON.stringify(data, null, 2), 'error');
+                }
+            } catch (error) {
+                console.error('Erro no login:', error);
+                addResult('❌ Login - ERRO', error.message, 'error');
+            }
+        }
+        
+        function checkLocalStorage() {
+            addResult('🔍 Verificação LocalStorage', 'Verificando dados armazenados...', 'info');
+            
+            try {
+                const token = localStorage.getItem('token');
+                const user = localStorage.getItem('user');
+                
+                let result = '';
+                
+                if (token) {
+                    result += '✅ Token encontrado:\n' + token.substring(0, 100) + '...\n\n';
+                } else {
+                    result += '❌ Token NÃO encontrado\n\n';
+                }
+                
+                if (user) {
+                    result += '✅ Usuário encontrado:\n' + user + '\n\n';
+                } else {
+                    result += '❌ Usuário NÃO encontrado\n\n';
+                }
+                
+                // Verificar se localStorage está funcionando
+                const testKey = 'test_' + Date.now();
+                const testValue = 'test_value_' + Date.now();
+                
+                localStorage.setItem(testKey, testValue);
+                const retrievedValue = localStorage.getItem(testKey);
+                localStorage.removeItem(testKey);
+                
+                if (retrievedValue === testValue) {
+                    result += '✅ LocalStorage funcionando corretamente';
+                } else {
+                    result += '❌ LocalStorage com problemas';
+                }
+                
+                addResult('💾 Status LocalStorage', result, token && user ? 'success' : 'error');
+                
+            } catch (error) {
+                addResult('❌ Erro LocalStorage', error.message, 'error');
+            }
+        }
+        
+        function testLogout() {
+            addResult('🚪 Teste de Logout', 'Limpando localStorage...', 'info');
+            
+            try {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                
+                addResult('✅ Logout', 'Token e usuário removidos do localStorage');
+                
+                // Verificar se foi removido
+                setTimeout(checkLocalStorage, 500);
+                
+            } catch (error) {
+                addResult('❌ Erro no Logout', error.message, 'error');
+            }
+        }
+        
+        // Verificação inicial ao carregar a página
+        window.onload = function() {
+            addResult('ℹ️ Informações do Sistema', `
+URL atual: ${window.location.href}
+User Agent: ${navigator.userAgent}
+LocalStorage disponível: ${typeof(Storage) !== "undefined"}
+Cookies habilitados: ${navigator.cookieEnabled}
+Timestamp: ${new Date().toISOString()}
+`, 'info');
+            
+            // Verificar estado inicial do localStorage
+            checkLocalStorage();
+        };
+    </script>
 </body>
 </html>

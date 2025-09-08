@@ -1,6 +1,8 @@
 const express = require('express');
+const { PrismaClient } = require('@prisma/client');
 const { auth, adminAuth } = require('../middleware/auth');
 
+const prisma = new PrismaClient();
 const router = express.Router();
 
 // @route   POST /api/pix/generate
@@ -11,8 +13,14 @@ router.post('/generate', auth, adminAuth, async (req, res) => {
     const { boletoId } = req.body;
     
     // Buscar dados do boleto
-    const Boleto = require('../models/Boleto');
-    const boleto = await Boleto.findById(boletoId).populate('proprietario', 'nome email');
+    const boleto = await prisma.boleto.findUnique({
+      where: { id: parseInt(boletoId) },
+      include: {
+        proprietario: {
+          select: { nome: true, email: true }
+        }
+      }
+    });
     
     if (!boleto) {
       return res.status(404).json({
@@ -94,11 +102,13 @@ router.post('/webhook', async (req, res) => {
     
     // Se o pagamento foi confirmado, atualizar o boleto
     if (status === 'PAGO' && boletoId) {
-      const Boleto = require('../models/Boleto');
-      const User = require('../models/User');
-      
       // Buscar o boleto
-      const boleto = await Boleto.findById(boletoId);
+      const boleto = await prisma.boleto.findUnique({
+        where: { id: parseInt(boletoId) },
+        include: {
+          proprietario: true
+        }
+      });
       if (!boleto) {
         return res.status(404).json({
           success: false,
@@ -115,21 +125,28 @@ router.post('/webhook', async (req, res) => {
       }
       
       // Atualizar o boleto como pago
-      boleto.status = 'pago';
-      boleto.dataPagamento = new Date(dataPagamento || Date.now());
-      boleto.metodoPagamento = 'pix';
-      boleto.txidPix = txid;
-      await boleto.save();
+      await prisma.boleto.update({
+        where: { id: boleto.id },
+        data: {
+          status: 'pago',
+          dataPagamento: new Date(dataPagamento || Date.now()),
+          metodoPagamento: 'pix',
+          txidPix: txid
+        }
+      });
       
       // Verificar se todos os boletos do proprietário foram pagos
-      const boletosRestantes = await Boleto.countDocuments({
-        proprietario: boleto.proprietario,
-        status: { $ne: 'pago' }
+      const boletosRestantes = await prisma.boleto.count({
+        where: {
+          proprietarioId: boleto.proprietarioId,
+          status: { not: 'pago' }
+        }
       });
       
       if (boletosRestantes === 0) {
-        await User.findByIdAndUpdate(boleto.proprietario, {
-          status: 'em_dia'
+        await prisma.user.update({
+          where: { id: boleto.proprietarioId },
+          data: { situacao: 'adimplente' }
         });
       }
       

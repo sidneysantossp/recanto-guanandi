@@ -1,6 +1,5 @@
 'use strict';
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -23,20 +22,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Flags de uso de banco
+// Flags de uso de banco - Usa apenas MySQL/Prisma
 const hasPrisma = !!prisma && !!process.env.DATABASE_URL;
-const MONGODB_URI = process.env.MONGODB_URI;
-const useMongo = !!MONGODB_URI && !hasPrisma;
 
-// Conectar ao MongoDB somente quando explicitamente configurado e não usando Prisma
-if (useMongo && !global._mongooseConnected) {
-  mongoose
-    .connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => {
-      console.log('MongoDB conectado com sucesso');
-      global._mongooseConnected = true;
-    })
-    .catch((err) => console.log('Erro ao conectar MongoDB:', err));
+// Log da configuração de banco
+if (hasPrisma) {
+  console.log('✅ Usando MySQL com Prisma');
+} else {
+  console.log('❌ Nenhum banco de dados configurado - configure DATABASE_URL para usar MySQL');
 }
 
 // Injeta prisma no request para controllers já migrarem gradualmente
@@ -62,7 +55,7 @@ app.use('/api/providers', providersRoutes);
 
 // Rota de teste/healthcheck
 app.get('/api/test', (req, res) => {
-  res.json({ message: 'API da Plataforma Guanandi funcionando!', db: hasPrisma ? 'supabase-postgres' : (useMongo ? 'mongo' : 'none') });
+  res.json({ message: 'API da Plataforma Guanandi funcionando!', db: hasPrisma ? 'mysql-prisma' : 'none' });
 });
 
 module.exports = app;

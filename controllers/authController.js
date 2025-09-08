@@ -63,14 +63,19 @@ const register = async (req, res) => {
 // Login do usuário
 const login = async (req, res) => {
   try {
-    const { email, senha } = req.body;
+    const { email, senha, password } = req.body;
+    const senhaFinal = senha || password;
+    
+    if (!email || !senhaFinal) {
+      return res.status(400).json({ message: 'Email e senha são obrigatórios' });
+    }
 
     if (req.prisma) {
       const prisma = req.prisma;
       const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
       if (!user) return res.status(400).json({ message: 'Credenciais inválidas' });
 
-      const isMatch = await bcrypt.compare(senha, user.senha);
+      const isMatch = await bcrypt.compare(senhaFinal, user.senha);
       if (!isMatch) return res.status(400).json({ message: 'Credenciais inválidas' });
 
       const payload = { user: { id: user.id, tipo: user.tipo } };
@@ -102,7 +107,7 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Credenciais inválidas' });
     }
 
-    const isMatch = await bcrypt.compare(senha, user.senha);
+    const isMatch = await bcrypt.compare(senhaFinal, user.senha);
     if (!isMatch) {
       return res.status(400).json({ message: 'Credenciais inválidas' });
     }

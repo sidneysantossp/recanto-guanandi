@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+
+// Usar instância global do Prisma
+const prisma = global.prisma;
 
 // Middleware para verificar token JWT
 const auth = async (req, res, next) => {
@@ -15,23 +17,22 @@ const auth = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key');
 
-    // Se Prisma estiver disponível, usar Postgres
-    if (req.prisma) {
-      const prisma = req.prisma;
-      const user = await prisma.user.findUnique({ where: { id: decoded.user.id } });
-      if (!user) {
-        return res.status(401).json({ success: false, message: 'Token inválido - usuário não encontrado' });
+    // Usar Prisma para buscar o usuário
+    const user = await prisma.user.findUnique({ 
+      where: { id: decoded.user.id },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        tipo: true,
+        cpf: true,
+        telefone: true,
+        endereco: true,
+        createdAt: true,
+        updatedAt: true
       }
-      if (user.situacao === 'inativo') {
-        return res.status(401).json({ success: false, message: 'Usuário inativo' });
-      }
-      // Normalizar req.user para conter id e _id (compatibilidade)
-      req.user = { ...user, _id: user.id };
-      return next();
-    }
-
-    // Fallback Mongo
-    const user = await User.findById(decoded.user.id).select('-senha');
+    });
+    
     if (!user) {
       return res.status(401).json({ 
         success: false, 
@@ -39,14 +40,8 @@ const auth = async (req, res, next) => {
       });
     }
 
-    if (user.situacao === 'inativo') {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Usuário inativo' 
-      });
-    }
-
-    req.user = user;
+    // Normalizar req.user para conter id e _id (compatibilidade)
+    req.user = { ...user, _id: user.id };
     next();
   } catch (error) {
     console.error('Erro na autenticação:', error);

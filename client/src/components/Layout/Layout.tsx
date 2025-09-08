@@ -22,13 +22,13 @@ import {
   Dashboard,
   People,
   Receipt,
-  Notifications,
   Assessment,
   AccountCircle,
   Logout,
   Settings,
   Payment,
   RequestQuote,
+  Notifications,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Container from '@mui/material/Container';
@@ -99,9 +99,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: 3, textAlign: 'center' }}>
-+        <Typography variant="h5" sx={{ color: 'white', fontWeight: 700 }}>
-+          RECANTO DO GUANANDI
-+        </Typography>
+        <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, fontSize: '1.1rem', whiteSpace: 'nowrap' }}>
+          RECANTO DO GUANANDI
+        </Typography>
          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 0.5 }}>
            Associação dos Proprietários
          </Typography>
@@ -181,15 +181,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               >
                 {user?.nome}
               </Typography>
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  color: 'rgba(255,255,255,0.7)',
-                  textTransform: 'capitalize'
-                }}
-              >
-                {user?.tipo}
-              </Typography>
+
             </Box>
           </Box>
         </Box>

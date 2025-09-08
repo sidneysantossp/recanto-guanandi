@@ -8,6 +8,8 @@ class PixSimulator {
   constructor() {
     this.simulationInterval = null;
     this.baseUrl = 'http://localhost:5001/api/pix';
+    // Usar instância global do Prisma
+    this.prisma = global.prisma;
   }
 
   /**
@@ -38,13 +40,14 @@ class PixSimulator {
    */
   async simulateRandomPayment() {
     try {
-      // Buscar boletos pendentes com PIX gerado
-      const Boleto = require('../models/Boleto');
-      
-      const boletosComPix = await Boleto.find({
-        status: { $in: ['pendente', 'vencido'] },
-        txidPix: { $exists: true, $ne: null }
-      }).limit(10);
+      // Buscar boletos pendentes com PIX gerado usando Prisma
+      const boletosComPix = await this.prisma.boleto.findMany({
+        where: {
+          status: { in: ['pendente', 'vencido'] },
+          txidPix: { not: null }
+        },
+        take: 10
+      });
 
       if (boletosComPix.length === 0) {
         return;
@@ -74,7 +77,7 @@ class PixSimulator {
         status: 'PAGO',
         valor: boleto.valor,
         dataPagamento: new Date().toISOString(),
-        boletoId: boleto._id.toString()
+        boletoId: boleto.id.toString()
       };
 
       // Enviar webhook simulado
@@ -92,8 +95,7 @@ class PixSimulator {
    */
   async simulatePaymentById(boletoId) {
     try {
-      const Boleto = require('../models/Boleto');
-      const boleto = await Boleto.findById(boletoId);
+      const boleto = await this.prisma.boleto.findUnique({ where: { id: parseInt(boletoId) } });
       
       if (!boleto) {
         throw new Error('Boleto não encontrado');
@@ -113,6 +115,13 @@ class PixSimulator {
       console.error('Erro ao simular pagamento por ID:', error.message);
       return false;
     }
+  }
+
+  /**
+   * Desconecta do banco de dados
+   */
+  async disconnect() {
+    await this.prisma.$disconnect();
   }
 }
 

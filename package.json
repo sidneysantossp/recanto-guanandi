@@ -14,7 +14,12 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:push": "prisma db push"
+    "prisma:push": "prisma db push",
+    "prisma:reset": "prisma migrate reset",
+    "prisma:studio": "prisma studio",
+    "db:migrate": "node scripts/migrate-to-mysql.js",
+    "db:setup": "prisma generate && prisma db push",
+    "db:seed": "node scripts/seed.js"
   },
   "keywords": [
     "financial",

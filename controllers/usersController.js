@@ -1,35 +1,51 @@
 const bcrypt = require('bcryptjs');
-const User = require('../models/User');
+
+// Usar instância global do Prisma
+const prisma = global.prisma;
 
 // Listar todos os usuários (apenas administradores)
 const getAllUsers = async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '', tipo = '' } = req.query;
     
-    // Construir filtro de busca
-    let filter = {};
+    // Construir filtro de busca para Prisma
+    let where = {};
     if (search) {
-      filter.$or = [
-        { nome: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { cpf: { $regex: search, $options: 'i' } }
+      where.OR = [
+        { nome: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { cpf: { contains: search, mode: 'insensitive' } }
       ];
     }
     if (tipo) {
-      filter.tipo = tipo;
+      where.tipo = tipo;
     }
 
-    const users = await User.find(filter)
-      .select('-senha')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .sort({ createdAt: -1 });
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        tipo: true,
+        cpf: true,
+        telefone: true,
+        situacao: true,
+        dataUltimoLogin: true,
+        endereco: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      take: parseInt(limit),
+      skip: (parseInt(page) - 1) * parseInt(limit),
+      orderBy: { createdAt: 'desc' }
+    });
 
-    const total = await User.countDocuments(filter);
+    const total = await prisma.user.count({ where });
 
     res.json({
       success: true,
-      data: users,
+      data: users.map(user => ({ ...user, _id: user.id })), // Compatibilidade com frontend
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
@@ -45,11 +61,26 @@ const getAllUsers = async (req, res) => {
 // Obter usuário por ID
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-senha');
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(req.params.id) },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        tipo: true,
+        cpf: true,
+        telefone: true,
+        situacao: true,
+        dataUltimoLogin: true,
+        endereco: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
-    res.json(user);
+    res.json({ ...user, _id: user.id }); // Compatibilidade com frontend
   } catch (error) {
     console.error('Erro ao obter usuário:', error);
     res.status(500).json({ message: 'Erro interno do servidor' });

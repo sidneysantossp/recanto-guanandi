@@ -1,50 +1,94 @@
-const Budget = require('../models/Budget');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 exports.list = async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '', status } = req.query;
-    const filtros = {};
-    if (search) filtros.$text = { $search: search };
-    if (status) filtros.status = status;
-
-    const items = await Budget.find(filtros)
-      .populate('empresa', 'nome')
-      .populate('prestador', 'nome')
-      .populate('solicitante', 'name email')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .sort({ createdAt: -1 });
-    const total = await Budget.countDocuments(filtros);
-    res.json({ success: true, data: items, pagination: { current: parseInt(page), pages: Math.ceil(total / limit), total } });
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+    
+    const where = {};
+    if (search) {
+      where.OR = [
+        { titulo: { contains: search, mode: 'insensitive' } },
+        { descricao: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+    if (status) where.status = status;
+    
+    const [items, total] = await Promise.all([
+      prisma.budget.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          companyRel: { select: { nome: true } },
+          providerRel: { select: { nome: true } },
+          solicitanteRel: { select: { nome: true, email: true } }
+        }
+      }),
+      prisma.budget.count({ where })
+    ]);
+    
+    res.json({ 
+      success: true, 
+      data: items, 
+      pagination: { 
+        current: pageNum, 
+        pages: Math.ceil(total / limitNum), 
+        total 
+      } 
+    });
   } catch (e) {
+    console.error('Erro ao listar orçamentos:', e);
     res.status(500).json({ success: false, message: 'Erro interno do servidor' });
   }
 };
 
 exports.getOne = async (req, res) => {
   try {
-    const item = await Budget.findById(req.params.id)
-      .populate('empresa', 'nome')
-      .populate('prestador', 'nome')
-      .populate('solicitante', 'name email')
-      .populate('comentarios.autor', 'name email')
-      .populate('historico.usuario', 'name email');
+    const item = await prisma.budget.findUnique({
+      where: { id: req.params.id },
+      include: {
+        companyRel: { select: { nome: true } },
+        providerRel: { select: { nome: true } },
+        solicitanteRel: { select: { nome: true, email: true } },
+        comentarios: {
+          include: {
+            autorRel: { select: { nome: true, email: true } }
+          }
+        },
+        historico: {
+          include: {
+            usuarioRel: { select: { nome: true, email: true } }
+          }
+        }
+      }
+    });
     if (!item) return res.status(404).json({ success: false, message: 'Orçamento não encontrado' });
     res.json({ success: true, data: item });
   } catch (e) {
+    console.error('Erro ao buscar orçamento:', e);
     res.status(404).json({ success: false, message: 'Orçamento não encontrado' });
   }
 };
 
 exports.create = async (req, res) => {
   try {
-    const payload = { ...req.body, solicitante: req.user && req.user._id };
-    const novo = await Budget.create({
-      ...payload,
-      historico: [{ tipo: 'criado', descricao: 'Orçamento criado', usuario: req.user && req.user._id }]
+    const payload = { ...req.body, solicitante: req.user && req.user.id };
+    const novo = await prisma.budget.create({
+      data: {
+        ...payload,
+        historico: {
+          create: [{ tipo: 'criado', descricao: 'Orçamento criado', usuario: req.user && req.user.id }]
+        }
+      }
     });
     res.status(201).json({ success: true, message: 'Orçamento criado com sucesso', data: novo });
   } catch (e) {
+    console.error('Erro ao criar orçamento:', e);
     res.status(400).json({ success: false, message: e.message });
   }
 };
