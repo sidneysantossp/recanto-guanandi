@@ -11,7 +11,7 @@
 ### 2. Criar o Banco de Dados
 
 1. Na seção **"Criar Novo Banco de Dados"**:
-   - **Nome do Banco**: `guanandi` (será criado como `cpanel_user_guanandi`)
+   - **Nome do Banco**: `canticosccb_guanandifinance` (será criado como `cpanel_user_canticosccb_guanandifinance`)
    - Clique em **"Criar Banco de Dados"**
 
 2. Anote o nome completo do banco criado:
@@ -22,8 +22,8 @@
 ### 3. Criar Usuário do Banco
 
 1. Na seção **"Adicionar Novo Usuário"**:
-   - **Nome de Usuário**: `guanandi_user`
-   - **Senha**: Gere uma senha forte (anote ela!)
+   - **Nome de Usuário**: `canticosccb_guanandifinance`
+   - **Senha**: `KmSs147258!`
    - Clique em **"Criar Usuário"**
 
 2. Anote as credenciais:

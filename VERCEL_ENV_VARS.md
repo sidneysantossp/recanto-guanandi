@@ -7,7 +7,7 @@ Copie e cole estas variáveis na Vercel (Settings > Environment Variables):
 ### 🗄️ Banco de Dados (OBRIGATÓRIO)
 ```bash
 # Substitua pelas suas credenciais do cPanel
-DATABASE_URL=mysql://cpanel_user_dbuser:sua_senha_segura@localhost:3306/cpanel_user_guanandi
+DATABASE_URL=mysql://canticosccb_guanandifinance:KmSs147258!@localhost:3306/canticosccb_guanandifinance
 ```
 
 ### 🔐 Autenticação (OBRIGATÓRIO)
