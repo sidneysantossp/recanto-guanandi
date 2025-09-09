@@ -75,6 +75,14 @@ SMTP_FROM=Condomínio Guanandi <noreply@guanandi.com>
 
 > ⚠️ **Atenção**: O sistema só funciona com UMA opção por vez. Se DATABASE_URL existir, ela terá prioridade sobre as variáveis separadas.
 
+### 4.1. 🔧 Script Automático de Configuração
+
+O sistema agora inclui um script automático (`scripts/setup-vercel-database.js`) que:
+- Constrói automaticamente a `DATABASE_URL` a partir das variáveis separadas
+- Cria o arquivo `.env` necessário para o Prisma
+- Executa durante o build na Vercel
+- Valida se todas as variáveis necessárias estão presentes
+
 ### 5. 🔄 Redeploy
 
 Após configurar todas as variáveis:
