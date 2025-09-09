@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Direto de Login - Guanandi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Direto de Login</h1>
+        <p>Este teste simula exatamente o que o React deveria estar fazendo.</p>
+        
+        <button onclick="testDirectLogin()">🔐 Testar Login Direto</button>
+        <button onclick="testReactSimulation()">⚛️ Simular React</button>
+        <button onclick="clearResults()">🧹 Limpar</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+
+        async function testDirectLogin() {
+            showResult('🔄 Testando login direto...', 'info');
+            
+            try {
+                // Simular exatamente o que o React faz
+                const apiUrl = 'http://localhost:5001/api';
+                const credentials = {
+                    email: 'admin@guanandi.com',
+                    senha: 'admin123'
+                };
+                
+                console.log('[TEST] Iniciando login para:', credentials.email);
+                
+                const response = await fetch(`${apiUrl}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(credentials)
+                });
+                
+                console.log('[TEST] Response status:', response.status);
+                console.log('[TEST] Response headers:', [...response.headers.entries()]);
+                
+                const data = await response.json();
+                console.log('[TEST] Response data:', data);
+                
+                if (response.ok && data.success) {
+                    // Simular o que o AuthContext faz
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    showResult(`✅ LOGIN FUNCIONOU!\n\nToken salvo: ${data.token.substring(0, 50)}...\n\nUsuário: ${data.user.nome} (${data.user.email})\n\nTipo: ${data.user.tipo}\n\nLocalStorage atualizado com sucesso!`, 'success');
+                    
+                    // Testar se conseguimos acessar uma rota protegida
+                    setTimeout(() => {
+                        testProtectedRoute(data.token);
+                    }, 1000);
+                } else {
+                    showResult(`❌ Erro no login:\nStatus: ${response.status}\nResposta: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                console.error('[TEST] Erro:', error);
+                showResult(`❌ Erro na requisição:\n${error.message}\n\nStack: ${error.stack}`, 'error');
+            }
+        }
+
+        async function testProtectedRoute(token) {
+            try {
+                console.log('[TEST] Testando rota protegida...');
+                
+                const response = await fetch('http://localhost:5001/api/auth/me', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                console.log('[TEST] Rota protegida:', data);
+                
+                if (response.ok) {
+                    showResult(document.getElementById('result').textContent + `\n\n✅ ROTA PROTEGIDA FUNCIONOU!\nDados do usuário: ${JSON.stringify(data.data, null, 2)}`, 'success');
+                } else {
+                    showResult(document.getElementById('result').textContent + `\n\n❌ Erro na rota protegida: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(document.getElementById('result').textContent + `\n\n❌ Erro ao testar rota protegida: ${error.message}`, 'error');
+            }
+        }
+
+        async function testReactSimulation() {
+            showResult('🔄 Simulando comportamento do React...', 'info');
+            
+            try {
+                // Simular o que acontece no ApiService
+                const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+                console.log('[REACT-SIM] Base URL:', baseURL);
+                
+                // Simular axios create
+                const config = {
+                    baseURL: baseURL,
+                    timeout: 10000,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                };
+                
+                console.log('[REACT-SIM] Config:', config);
+                
+                // Simular requisição
+                const response = await fetch(`${baseURL}/auth/login`, {
+                    method: 'POST',
+                    headers: config.headers,
+                    body: JSON.stringify({
+                        email: 'admin@guanandi.com',
+                        senha: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`✅ SIMULAÇÃO REACT OK!\n\nBase URL: ${baseURL}\nConfig: ${JSON.stringify(config, null, 2)}\n\nResposta: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult(`❌ Erro na simulação React:\n${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Erro na simulação React:\n${error.message}`, 'error');
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('result').textContent = '';
+            document.getElementById('result').className = '';
+        }
+
+        // Auto-executar ao carregar
+        window.onload = function() {
+            showResult(`🚀 Teste Direto Carregado\n\nLocalStorage atual:\nToken: ${localStorage.getItem('token') ? 'Presente' : 'Ausente'}\nUser: ${localStorage.getItem('user') ? 'Presente' : 'Ausente'}\n\n🔧 Clique em 'Testar Login Direto' para começar`, 'info');
+        };
+    </script>
+</body>
+</html>

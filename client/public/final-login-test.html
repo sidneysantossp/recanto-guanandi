@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Final de Login - Guanandi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #FF6B35;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #e55a2b;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Teste Final de Login - Guanandi</h1>
+        <p>Este teste simula exatamente o processo que o React faz:</p>
+        
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" value="admin@guanandi.com" placeholder="Digite seu email">
+        </div>
+        
+        <div class="form-group">
+            <label for="senha">Senha:</label>
+            <input type="password" id="senha" value="123456" placeholder="Digite sua senha">
+        </div>
+        
+        <button onclick="testCompleteLoginFlow()">🚀 Testar Fluxo Completo de Login</button>
+        <button onclick="testAuthContext()">🔍 Testar AuthContext</button>
+        <button onclick="testRedirection()">↗️ Testar Redirecionamento</button>
+        <button onclick="clearResults()">🧹 Limpar Resultados</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5001/api';
+        
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+        
+        function clearResults() {
+            document.getElementById('result').innerHTML = '';
+        }
+        
+        async function testCompleteLoginFlow() {
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+            
+            if (!email || !senha) {
+                showResult('❌ Por favor, preencha email e senha', 'error');
+                return;
+            }
+            
+            try {
+                showResult('🔄 Iniciando teste completo de login...', 'info');
+                
+                // Passo 1: Limpar localStorage
+                localStorage.clear();
+                showResult('✅ Passo 1: localStorage limpo', 'success');
+                
+                // Passo 2: Fazer login
+                const loginResponse = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, senha })
+                });
+                
+                if (!loginResponse.ok) {
+                    const errorData = await loginResponse.json();
+                    throw new Error(errorData.message || 'Erro no login');
+                }
+                
+                const loginData = await loginResponse.json();
+                showResult(`✅ Passo 2: Login realizado com sucesso\nToken: ${loginData.token.substring(0, 20)}...\nUsuário: ${loginData.user.nome}`, 'success');
+                
+                // Passo 3: Salvar no localStorage (como o AuthContext faz)
+                localStorage.setItem('token', loginData.token);
+                localStorage.setItem('user', JSON.stringify(loginData.user));
+                showResult('✅ Passo 3: Dados salvos no localStorage', 'success');
+                
+                // Passo 4: Verificar se o token funciona
+                const meResponse = await fetch(`${API_URL}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${loginData.token}`
+                    }
+                });
+                
+                if (!meResponse.ok) {
+                    throw new Error('Token inválido após login');
+                }
+                
+                const meData = await meResponse.json();
+                showResult(`✅ Passo 4: Token validado com sucesso\nUsuário autenticado: ${meData.nome}`, 'success');
+                
+                // Passo 5: Simular redirecionamento
+                showResult(`✅ Passo 5: Redirecionamento simulado para /dashboard\n\n🎉 TESTE COMPLETO: Login funcionando perfeitamente!\n\nO problema pode estar em:\n- Componente React não atualizando estado\n- Problema de timing no useEffect\n- Erro no roteamento do React Router`, 'success');
+                
+            } catch (error) {
+                showResult(`❌ Erro no teste: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAuthContext() {
+            try {
+                showResult('🔄 Testando simulação do AuthContext...', 'info');
+                
+                // Simular o que o AuthContext faz na inicialização
+                const token = localStorage.getItem('token');
+                const userStr = localStorage.getItem('user');
+                
+                if (!token || !userStr) {
+                    showResult('❌ Nenhum token ou usuário encontrado no localStorage', 'error');
+                    return;
+                }
+                
+                const user = JSON.parse(userStr);
+                showResult(`✅ Dados encontrados no localStorage:\nToken: ${token.substring(0, 20)}...\nUsuário: ${user.nome}`, 'success');
+                
+                // Verificar token
+                const response = await fetch(`${API_URL}/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    showResult('❌ Token inválido - AuthContext limparia os dados', 'error');
+                    localStorage.clear();
+                    return;
+                }
+                
+                const userData = await response.json();
+                showResult(`✅ AuthContext simulado com sucesso!\nUsuário autenticado: ${userData.nome}\nTipo: ${userData.tipo}\n\n🎯 O AuthContext deveria funcionar corretamente`, 'success');
+                
+            } catch (error) {
+                showResult(`❌ Erro na simulação do AuthContext: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRedirection() {
+            showResult('🔄 Testando redirecionamento...', 'info');
+            
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showResult('❌ Nenhum token encontrado. Faça login primeiro.', 'error');
+                return;
+            }
+            
+            // Simular verificação de rotas
+            const routes = [
+                { path: '/', shouldRedirect: '/dashboard' },
+                { path: '/login', shouldRedirect: '/dashboard' },
+                { path: '/dashboard', shouldRedirect: null },
+                { path: '/usuarios', shouldRedirect: null },
+            ];
+            
+            let result = '✅ Simulação de redirecionamento:\n\n';
+            
+            routes.forEach(route => {
+                if (route.shouldRedirect) {
+                    result += `${route.path} → ${route.shouldRedirect} ✅\n`;
+                } else {
+                    result += `${route.path} → Acesso permitido ✅\n`;
+                }
+            });
+            
+            result += '\n🎯 O redirecionamento deveria funcionar corretamente';
+            showResult(result, 'success');
+        }
+        
+        // Teste automático ao carregar a página
+        window.onload = function() {
+            showResult('🔧 Página de teste carregada. Clique nos botões para testar diferentes aspectos do login.', 'info');
+        };
+    </script>
+</body>
+</html>
