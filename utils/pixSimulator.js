@@ -95,7 +95,7 @@ class PixSimulator {
    */
   async simulatePaymentById(boletoId) {
     try {
-      const boleto = await this.prisma.boleto.findUnique({ where: { id: parseInt(boletoId) } });
+      const boleto = await this.prisma.boleto.findUnique({ where: { id: boletoId } });
       
       if (!boleto) {
         throw new Error('Boleto não encontrado');

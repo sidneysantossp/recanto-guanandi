@@ -1,6 +1,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { auth, adminAuth } = require('../middleware/auth');
+const QRCode = require('qrcode');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -14,9 +15,9 @@ router.post('/generate', auth, adminAuth, async (req, res) => {
     
     // Buscar dados do boleto
     const boleto = await prisma.boleto.findUnique({
-      where: { id: parseInt(boletoId) },
+      where: { id: boletoId },
       include: {
-        proprietario: {
+        proprietarioRel: {
           select: { nome: true, email: true }
         }
       }
@@ -42,24 +43,29 @@ router.post('/generate', auth, adminAuth, async (req, res) => {
     // Dados do PIX
     const chavePix = 'pix@guanandi.com.br';
     const valor = boleto.valor;
-    const descricao = `Boleto ${boleto.descricao} - ${boleto.proprietario.nome}`;
+    const descricao = `Boleto ${boleto.descricao} - ${boleto.proprietarioRel.nome}`;
     
     // Gerar código PIX (formato simplificado)
     const codigoPix = `00020126580014BR.GOV.BCB.PIX0136${chavePix}520400005303986540${valor.toFixed(2)}5802BR5913GUANANDI COND6009SAO PAULO62${('0' + txid.length).slice(-2)}${txid}6304`;
     
-    // QR Code mockado (em produção, usar biblioteca de QR Code)
-    const qrCodeBase64 = 'data:image/svg+xml;base64,' + Buffer.from(`
-      <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
-        <rect width="200" height="200" fill="white"/>
-        <rect x="20" y="20" width="160" height="160" fill="none" stroke="black" stroke-width="2"/>
-        <text x="100" y="100" text-anchor="middle" font-family="Arial" font-size="12" fill="black">QR CODE PIX</text>
-        <text x="100" y="120" text-anchor="middle" font-family="Arial" font-size="10" fill="black">R$ ${valor.toFixed(2)}</text>
-        <text x="100" y="140" text-anchor="middle" font-family="Arial" font-size="8" fill="black">${txid}</text>
-      </svg>
-    `).toString('base64');
+    // Gerar QR Code real usando a biblioteca qrcode
+    const qrCodeBase64 = await QRCode.toDataURL(codigoPix, {
+      width: 200,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
     
+    // Atualizar o boleto com o TXID gerado
+    await prisma.boleto.update({
+      where: { id: boleto.id },
+      data: { txidPix: txid }
+    });
+
     const pixData = {
-      boletoId: boleto._id,
+      boletoId: boleto.id,
       chavePix: chavePix,
       qrCode: qrCodeBase64,
       codigoPix: codigoPix,
@@ -69,8 +75,8 @@ router.post('/generate', auth, adminAuth, async (req, res) => {
       txid: txid,
       status: 'PENDENTE',
       proprietario: {
-        nome: boleto.proprietario.nome,
-        email: boleto.proprietario.email
+        nome: boleto.proprietarioRel.nome,
+        email: boleto.proprietarioRel.email
       }
     };
     
@@ -104,9 +110,9 @@ router.post('/webhook', async (req, res) => {
     if (status === 'PAGO' && boletoId) {
       // Buscar o boleto
       const boleto = await prisma.boleto.findUnique({
-        where: { id: parseInt(boletoId) },
+        where: { id: boletoId },
         include: {
-          proprietario: true
+          proprietarioRel: true
         }
       });
       if (!boleto) {
@@ -138,7 +144,7 @@ router.post('/webhook', async (req, res) => {
       // Verificar se todos os boletos do proprietário foram pagos
       const boletosRestantes = await prisma.boleto.count({
         where: {
-          proprietarioId: boleto.proprietarioId,
+          proprietario: boleto.proprietarioId,
           status: { not: 'pago' }
         }
       });
