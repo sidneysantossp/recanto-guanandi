@@ -5,10 +5,25 @@
 Copie e cole estas variáveis na Vercel (Settings > Environment Variables):
 
 ### 🗄️ Banco de Dados (OBRIGATÓRIO)
+
+**OPÇÃO 1: DATABASE_URL (Recomendado)**
 ```bash
 # Substitua pelas suas credenciais do cPanel
 DATABASE_URL=mysql://canticosccb_guanandifinance:KmSs147258!@localhost:3306/canticosccb_guanandifinance
 ```
+
+**OPÇÃO 2: Variáveis Separadas (Alternativa)**
+```bash
+# Use esta opção se preferir configurar cada item separadamente
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=canticosccb_guanandifinance
+DB_PASSWORD=KmSs147258!
+DB_NAME=canticosccb_guanandifinance
+DB_SSL=false
+```
+
+> ⚠️ **Importante**: Use apenas UMA das opções acima. Se usar variáveis separadas, NÃO configure DATABASE_URL.
 
 ### 🔐 Autenticação (OBRIGATÓRIO)
 ```bash

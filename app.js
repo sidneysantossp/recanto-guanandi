@@ -3,16 +3,23 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+// Configuração flexível de banco de dados
+const { getPrismaConfig } = require('./config/database');
+
 // Prisma Client (reuso em serverless)
 let prisma;
 try {
+  // Configura o banco de dados (DATABASE_URL ou variáveis separadas)
+  getPrismaConfig();
+  
   if (!global.prisma) {
     const { PrismaClient } = require('@prisma/client');
     global.prisma = new PrismaClient();
   }
   prisma = global.prisma;
 } catch (e) {
-  // prisma ainda não instalado/gerado ou DATABASE_URL ausente
+  console.error('❌ Erro na configuração do banco:', e.message);
+  // prisma ainda não instalado/gerado ou configuração de banco ausente
 }
 
 const app = express();
@@ -29,7 +36,7 @@ const hasPrisma = !!prisma && !!process.env.DATABASE_URL;
 if (hasPrisma) {
   console.log('✅ Usando MySQL com Prisma');
 } else {
-  console.log('❌ Nenhum banco de dados configurado - configure DATABASE_URL para usar MySQL');
+  console.log('❌ Nenhum banco de dados configurado - verifique configuração do banco');
 }
 
 // Injeta prisma no request para controllers já migrarem gradualmente

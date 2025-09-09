@@ -62,34 +62,183 @@ const register = async (req, res) => {
 
 // Login do usuário
 const login = async (req, res) => {
+  const startTime = Date.now();
+  const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+  
   try {
     const { email, senha, password } = req.body;
     const senhaFinal = senha || password;
     
+    console.log(`[LOGIN] Tentativa de login para: ${email} | IP: ${clientIP}`);
+    
+    // Validação de entrada
     if (!email || !senhaFinal) {
-      return res.status(400).json({ message: 'Email e senha são obrigatórios' });
+      console.log(`[LOGIN] Erro de validação: email=${!!email}, senha=${!!senhaFinal}`);
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email e senha são obrigatórios',
+        error_type: 'validation_error'
+      });
+    }
+
+    // Validação de formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.log(`[LOGIN] Email inválido: ${email}`);
+      return res.status(400).json({ 
+        success: false,
+        message: 'Formato de email inválido',
+        error_type: 'invalid_email'
+      });
     }
 
     if (req.prisma) {
+      console.log('[LOGIN] Usando Prisma (MySQL)');
       const prisma = req.prisma;
-      const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-      if (!user) return res.status(400).json({ message: 'Credenciais inválidas' });
+      
+      try {
+        // Buscar usuário
+        const user = await prisma.user.findUnique({ 
+          where: { email: email.toLowerCase() } 
+        });
+        
+        if (!user) {
+          console.log(`[LOGIN] Usuário não encontrado: ${email}`);
+          return res.status(401).json({ 
+            success: false,
+            message: 'Email não encontrado no sistema',
+            error_type: 'user_not_found'
+          });
+        }
+
+        console.log(`[LOGIN] Usuário encontrado: ${user.nome} (${user.email}) | Tipo: ${user.tipo}`);
+        
+        // Verificar se usuário está ativo
+        if (user.ativo === false) {
+          console.log(`[LOGIN] Usuário inativo: ${email}`);
+          return res.status(403).json({ 
+            success: false,
+            message: 'Usuário desativado. Entre em contato com o administrador.',
+            error_type: 'user_inactive'
+          });
+        }
+
+        // Verificar senha
+        const isMatch = await bcrypt.compare(senhaFinal, user.senha);
+        if (!isMatch) {
+          console.log(`[LOGIN] Senha incorreta para: ${email}`);
+          return res.status(401).json({ 
+            success: false,
+            message: 'Senha incorreta',
+            error_type: 'wrong_password'
+          });
+        }
+
+        console.log(`[LOGIN] Autenticação bem-sucedida para: ${email}`);
+
+        // Gerar token JWT
+        const payload = { user: { id: user.id, tipo: user.tipo } };
+        const jwtSecret = process.env.JWT_SECRET || 'fallback_secret_key';
+        
+        if (jwtSecret === 'fallback_secret_key') {
+          console.warn('[LOGIN] AVISO: Usando JWT_SECRET padrão. Configure uma chave segura!');
+        }
+        
+        jwt.sign(
+          payload,
+          jwtSecret,
+          { expiresIn: '24h' },
+          (err, token) => {
+            if (err) {
+              console.error('[LOGIN] Erro ao gerar token JWT:', err);
+              return res.status(500).json({ 
+                success: false,
+                message: 'Erro ao gerar token de autenticação',
+                error_type: 'jwt_error'
+              });
+            }
+            
+            const loginTime = Date.now() - startTime;
+            console.log(`[LOGIN] Login concluído com sucesso em ${loginTime}ms para: ${email}`);
+            
+            res.json({
+              success: true,
+              token,
+              user: {
+                id: user.id,
+                nome: user.nome,
+                email: user.email,
+                tipo: user.tipo,
+                apartamento: user.apartamento
+              }
+            });
+          }
+        );
+        return;
+        
+      } catch (prismaError) {
+        console.error('[LOGIN] Erro do Prisma:', prismaError);
+        return res.status(500).json({ 
+          success: false,
+          message: 'Erro de conexão com o banco de dados',
+          error_type: 'database_error',
+          details: process.env.NODE_ENV === 'development' ? prismaError.message : undefined
+        });
+      }
+    }
+
+    // Fallback para MongoDB (caso não tenha Prisma)
+    console.log('[LOGIN] Usando MongoDB (fallback)');
+    try {
+      const user = await User.findOne({ email });
+      if (!user) {
+        console.log(`[LOGIN] Usuário não encontrado (MongoDB): ${email}`);
+        return res.status(401).json({ 
+          success: false,
+          message: 'Email não encontrado no sistema',
+          error_type: 'user_not_found'
+        });
+      }
 
       const isMatch = await bcrypt.compare(senhaFinal, user.senha);
-      if (!isMatch) return res.status(400).json({ message: 'Credenciais inválidas' });
+      if (!isMatch) {
+        console.log(`[LOGIN] Senha incorreta (MongoDB): ${email}`);
+        return res.status(401).json({ 
+          success: false,
+          message: 'Senha incorreta',
+          error_type: 'wrong_password'
+        });
+      }
 
-      const payload = { user: { id: user.id, tipo: user.tipo } };
+      const payload = {
+        user: {
+          id: user._id,
+          tipo: user.tipo
+        }
+      };
+
       jwt.sign(
         payload,
         process.env.JWT_SECRET || 'fallback_secret_key',
         { expiresIn: '24h' },
         (err, token) => {
-          if (err) throw err;
+          if (err) {
+            console.error('[LOGIN] Erro ao gerar token JWT (MongoDB):', err);
+            return res.status(500).json({ 
+              success: false,
+              message: 'Erro ao gerar token de autenticação',
+              error_type: 'jwt_error'
+            });
+          }
+          
+          const loginTime = Date.now() - startTime;
+          console.log(`[LOGIN] Login MongoDB concluído em ${loginTime}ms para: ${email}`);
+          
           res.json({
             success: true,
             token,
             user: {
-              id: user.id,
+              id: user._id,
               nome: user.nome,
               email: user.email,
               tipo: user.tipo,
@@ -98,49 +247,31 @@ const login = async (req, res) => {
           });
         }
       );
-      return;
+    } catch (mongoError) {
+      console.error('[LOGIN] Erro do MongoDB:', mongoError);
+      return res.status(500).json({ 
+        success: false,
+        message: 'Erro de conexão com o banco de dados',
+        error_type: 'database_error',
+        details: process.env.NODE_ENV === 'development' ? mongoError.message : undefined
+      });
     }
-
-    // Mongo path
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Credenciais inválidas' });
-    }
-
-    const isMatch = await bcrypt.compare(senhaFinal, user.senha);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Credenciais inválidas' });
-    }
-
-    const payload = {
-      user: {
-        id: user._id,
-        tipo: user.tipo
-      }
-    };
-
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET || 'fallback_secret_key',
-      { expiresIn: '24h' },
-      (err, token) => {
-        if (err) throw err;
-        res.json({
-          success: true,
-          token,
-          user: {
-            id: user._id,
-            nome: user.nome,
-            email: user.email,
-            tipo: user.tipo,
-            apartamento: user.apartamento
-          }
-        });
-      }
-    );
+    
   } catch (error) {
-    console.error('Erro ao fazer login:', error);
-    res.status(500).json({ message: 'Erro interno do servidor' });
+    const loginTime = Date.now() - startTime;
+    console.error(`[LOGIN] Erro geral após ${loginTime}ms:`, {
+      message: error.message,
+      stack: error.stack,
+      email: req.body?.email,
+      ip: clientIP
+    });
+    
+    res.status(500).json({ 
+      success: false,
+      message: 'Erro interno do servidor',
+      error_type: 'server_error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
