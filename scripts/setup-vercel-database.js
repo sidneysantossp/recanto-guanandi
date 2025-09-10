@@ -43,16 +43,15 @@ function buildDatabaseUrl() {
 
   // Verifica se todas as variáveis necessárias estão presentes
   if (!DB_HOST || !DB_USER || !DB_PASSWORD || !DB_NAME) {
-    console.error('❌ Variáveis de banco incompletas!');
-    console.error('Necessário: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME');
-    console.error('Atual:');
-    console.error(`- DB_HOST: ${DB_HOST || 'não definido'}`);
-    console.error(`- DB_PORT: ${DB_PORT}`);
-    console.error(`- DB_USER: ${DB_USER || 'não definido'}`);
-    console.error(`- DB_PASSWORD: ${DB_PASSWORD ? 'definido' : 'não definido'}`);
-    console.error(`- DB_NAME: ${DB_NAME || 'não definido'}`);
-    console.error(`- DB_SSL: ${DB_SSL}`);
-    process.exit(1);
+    const details = [
+      `- DB_HOST: ${DB_HOST || 'não definido'}`,
+      `- DB_PORT: ${DB_PORT}`,
+      `- DB_USER: ${DB_USER || 'não definido'}`,
+      `- DB_PASSWORD: ${DB_PASSWORD ? 'definido' : 'não definido'}`,
+      `- DB_NAME: ${DB_NAME || 'não definido'}`,
+      `- DB_SSL: ${DB_SSL}`,
+    ].join('\n');
+    throw new Error(`Variáveis de banco incompletas!\nNecessário: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME\nAtual:\n${details}`);
   }
 
   // Constrói a URL do banco
@@ -101,12 +100,21 @@ if (!process.env.DATABASE_URL) {
       console.warn('⚠️  Não foi possível escrever .env, seguindo com variável de ambiente atual');
     }
   } else if (!normalized.startsWith('mysql://')) {
-    console.error('❌ DATABASE_URL definida, porém não inicia com mysql:// e não pôde ser normalizada.');
-    console.error('   Valor atual (ocultando senha):');
-    const safe = original.replace(/:\\S+@/, ':***@');
-    console.error(`   ${safe}`);
-    console.error('   Dica: Use o formato: mysql://usuario:senha@host:porta/banco');
-    process.exit(1);
+    console.warn('⚠️  DATABASE_URL definida, porém não inicia com mysql:// e não pôde ser normalizada. Tentando variáveis DB_*...');
+    try {
+      const built = buildDatabaseUrl();
+      const prismaUrl = normalizeToPrismaMysql(built);
+      // Mantemos DATABASE_URL original e usamos PRISMA_DATABASE_URL para o Prisma
+      const envContent = `DATABASE_URL=\"${original}\"\nPRISMA_DATABASE_URL=\"${prismaUrl}\"\n`;
+      fs.writeFileSync('.env', envContent);
+      console.log('✅ Usando PRISMA_DATABASE_URL construído a partir de DB_* variáveis');
+    } catch (e) {
+      console.error('❌ DATABASE_URL inválida e variáveis DB_* insuficientes para construir a URL.');
+      console.error('   Valor atual de DATABASE_URL:', original);
+      console.error('   Erro ao montar via DB_*:', e.message);
+      console.error('   Dica: defina DATABASE_URL no formato mysql://... ou configure DB_HOST, DB_USER, DB_PASSWORD, DB_NAME.');
+      process.exit(1);
+    }
   } else {
     // Está compatível: ainda assim garantimos PRISMA_DATABASE_URL para o Prisma CLI
     try {
