@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
+  // Usa PRISMA_DATABASE_URL para evitar conflitos com variáveis do app
+  url      = env("PRISMA_DATABASE_URL")
 }
 
 // Enums
