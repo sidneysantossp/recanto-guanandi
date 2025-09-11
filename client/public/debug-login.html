@@ -85,7 +85,7 @@
         
         <div class="form-group">
             <label for="apiUrl">URL da API:</label>
-            <input type="text" id="apiUrl" value="http://localhost:5001/api">
+            <input type="text" id="apiUrl" value="">
         </div>
         
         <div>
@@ -103,6 +103,12 @@
             const resultDiv = document.getElementById('result');
             resultDiv.className = `result ${type}`;
             resultDiv.textContent = message;
+        }
+
+        function computeDefaultApi() {
+            return (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+                ? 'http://localhost:5001/api'
+                : `${location.origin}/api`;
         }
 
         async function testConnection() {
@@ -127,7 +133,7 @@
         async function testLogin() {
             const email = document.getElementById('email').value;
             const senha = document.getElementById('senha').value;
-            const apiUrl = document.getElementById('apiUrl').value;
+            const apiUrl = document.getElementById('apiUrl').value || computeDefaultApi();
             
             showResult('🔄 Testando login...', 'info');
             
@@ -159,7 +165,7 @@
         async function testWithFetch() {
             const email = document.getElementById('email').value;
             const senha = document.getElementById('senha').value;
-            const apiUrl = document.getElementById('apiUrl').value;
+            const apiUrl = document.getElementById('apiUrl').value || computeDefaultApi();
             
             showResult('🔄 Testando com fetch puro...', 'info');
             
@@ -208,7 +214,10 @@
 
         // Carregar informações iniciais
         window.onload = function() {
-            const info = `🚀 Debug Login Carregado\n\nURL atual: ${window.location.href}\nUser Agent: ${navigator.userAgent}\n\nLocalStorage atual:\nToken: ${localStorage.getItem('token') ? 'Presente' : 'Ausente'}\nUser: ${localStorage.getItem('user') ? 'Presente' : 'Ausente'}\n\n🔧 Testando automaticamente...`;
+            const defaultApi = computeDefaultApi();
+            const apiInput = document.getElementById('apiUrl');
+            if (apiInput && !apiInput.value) apiInput.value = defaultApi;
+            const info = `🚀 Debug Login Carregado\n\nURL atual: ${window.location.href}\nUser Agent: ${navigator.userAgent}\nAPI padrão: ${defaultApi}\n\nLocalStorage atual:\nToken: ${localStorage.getItem('token') ? 'Presente' : 'Ausente'}\nUser: ${localStorage.getItem('user') ? 'Presente' : 'Ausente'}\n\n🔧 Testando automaticamente...`;
             showResult(info, 'info');
             
             // Testar automaticamente ao carregar

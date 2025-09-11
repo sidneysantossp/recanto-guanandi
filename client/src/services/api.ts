@@ -21,7 +21,11 @@ class ApiService {
   constructor() {
     // Normaliza a URL base para evitar casos como ":5001/api" sem host
     const envBase = process.env.REACT_APP_API_URL?.trim();
-    let computedBaseURL = envBase && envBase !== ''
+    // Em produção, ignore valores que apontem para localhost
+    const isProd = process.env.NODE_ENV === 'production';
+    const looksLocal = (url?: string) => !!url && /localhost|127\.0\.0\.1/i.test(url);
+
+    let computedBaseURL = envBase && envBase !== '' && !(isProd && looksLocal(envBase))
       ? envBase
       : (process.env.NODE_ENV === 'development'
           ? 'http://localhost:5001/api'
