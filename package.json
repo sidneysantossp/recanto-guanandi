@@ -10,7 +10,7 @@
     "server": "nodemon server.js",
     "build": "cd client && npm run build",
     "heroku-postbuild": "cd client && npm install && npm run build",
-    "vercel-build": "node scripts/setup-vercel-database.js && cd client && npm install && npm run build && cd .. && npx prisma generate && node scripts/run-prisma-migrate.js",
+    "vercel-build": "node scripts/setup-vercel-database.js && cd client && npm install && CI= npm run build && cd .. && npx prisma generate && node scripts/run-prisma-migrate.js",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
