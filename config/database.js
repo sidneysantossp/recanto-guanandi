@@ -4,22 +4,27 @@
  */
 
 function getDatabaseConfig() {
-  // Primeiro, tenta usar DATABASE_URL (formato completo)
+  // 1) URLs diretas
   if (process.env.DATABASE_URL) {
     console.log('📊 Usando DATABASE_URL para conexão');
-    return {
-      url: process.env.DATABASE_URL
-    };
+    return { url: process.env.DATABASE_URL };
   }
 
-  // Depois, tenta PRISMA_DATABASE_URL (caso tenha sido definida apenas para o Prisma)
   if (process.env.PRISMA_DATABASE_URL) {
     console.log('📊 Usando PRISMA_DATABASE_URL para conexão');
-    // Também garante compatibilidade com outras partes do app
     process.env.DATABASE_URL = process.env.PRISMA_DATABASE_URL;
-    return {
-      url: process.env.PRISMA_DATABASE_URL
-    };
+    return { url: process.env.PRISMA_DATABASE_URL };
+  }
+
+  // 2) Mapeia variáveis do Supabase/Postgres em runtime (sem depender do script de build)
+  const pgPrisma = process.env.POSTGRES_PRISMA_URL;
+  const pgUrl = process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING;
+  if (pgPrisma || pgUrl) {
+    const url = pgPrisma || pgUrl;
+    process.env.PRISMA_DATABASE_URL = url;
+    process.env.DATABASE_URL = url;
+    console.log('📊 PRISMA_DATABASE_URL/DATABASE_URL definidas a partir de variáveis POSTGRES_*');
+    return { url };
   }
 
   // Se não tiver DATABASE_URL, constrói a partir de variáveis separadas
@@ -57,7 +62,7 @@ Variáveis atuais:
 `);
   }
 
-  // Constrói a URL do banco
+  // 3) Constrói a URL do banco MySQL a partir de DB_* (legado)
   const sslParam = DB_SSL === 'true' ? '?ssl=true' : '';
   const databaseUrl = `mysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}${sslParam}`;
   
