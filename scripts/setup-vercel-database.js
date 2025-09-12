@@ -67,6 +67,19 @@ function buildDatabaseUrl() {
   return databaseUrl;
 }
 
+// Se PRISMA_DATABASE_URL estiver definida (ex.: DB gerenciado), use-a também como DATABASE_URL
+if (process.env.PRISMA_DATABASE_URL && !process.env.DATABASE_URL) {
+  const normalized = normalizeToPrismaMysql(process.env.PRISMA_DATABASE_URL);
+  process.env.DATABASE_URL = normalized;
+  try {
+    const envContent = `DATABASE_URL=\"${normalized}\"\nPRISMA_DATABASE_URL=\"${normalized}\"\n`;
+    fs.writeFileSync('.env', envContent);
+    console.log('✅ PRISMA_DATABASE_URL detectada. DATABASE_URL ajustada e gravada em .env');
+  } catch (err) {
+    console.warn('⚠️  Não foi possível escrever .env a partir de PRISMA_DATABASE_URL');
+  }
+}
+
 // Configura DATABASE_URL se não estiver definida
 if (!process.env.DATABASE_URL) {
   try {

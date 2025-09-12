@@ -30,7 +30,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Flags de uso de banco - Usa apenas MySQL/Prisma
-const hasPrisma = !!prisma && !!process.env.DATABASE_URL;
+const hasPrisma = !!prisma && (!!process.env.DATABASE_URL || !!process.env.PRISMA_DATABASE_URL);
 
 // Log da configuração de banco
 if (hasPrisma) {
