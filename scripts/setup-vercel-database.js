@@ -67,18 +67,36 @@ function buildDatabaseUrl() {
   return databaseUrl;
 }
 
-// Se PRISMA_DATABASE_URL estiver definida (ex.: DB gerenciado), use-a também como DATABASE_URL
-if (process.env.PRISMA_DATABASE_URL && !process.env.DATABASE_URL) {
-  const normalized = normalizeToPrismaMysql(process.env.PRISMA_DATABASE_URL);
-  process.env.DATABASE_URL = normalized;
-  try {
-    const envContent = `DATABASE_URL=\"${normalized}\"\nPRISMA_DATABASE_URL=\"${normalized}\"\n`;
-    fs.writeFileSync('.env', envContent);
-    console.log('✅ PRISMA_DATABASE_URL detectada. DATABASE_URL ajustada e gravada em .env');
-  } catch (err) {
-    console.warn('⚠️  Não foi possível escrever .env a partir de PRISMA_DATABASE_URL');
+// Normaliza variáveis para ambientes gerenciados (Supabase, etc.)
+// Aceita também POSTGRES_PRISMA_URL / POSTGRES_URL e promove para PRISMA_DATABASE_URL
+(() => {
+  const pgPrisma = process.env.PRISMA_DATABASE_URL || process.env.POSTGRES_PRISMA_URL;
+  const pgUrl = process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING;
+
+  // Se não houver PRISMA_DATABASE_URL mas houver uma das alternativas, promova
+  if (!process.env.PRISMA_DATABASE_URL && (pgPrisma || pgUrl)) {
+    process.env.PRISMA_DATABASE_URL = pgPrisma || pgUrl;
+    console.log('✅ PRISMA_DATABASE_URL derivada de variáveis POSTGRES_*');
   }
-}
+
+  // Se PRISMA_DATABASE_URL existir, também defina DATABASE_URL (para libs que esperam esta var)
+  if (process.env.PRISMA_DATABASE_URL && !process.env.DATABASE_URL) {
+    // Para MySQL manter normalize; para Postgres deixar como está
+    const val = process.env.PRISMA_DATABASE_URL;
+    const normalized = val.startsWith('mysql') ? normalizeToPrismaMysql(val) : val;
+    process.env.DATABASE_URL = normalized;
+    try {
+      let envContent = `PRISMA_DATABASE_URL=\"${val}\"\nDATABASE_URL=\"${normalized}\"\n`;
+      if (process.env.POSTGRES_URL_NON_POOLING) {
+        envContent += `DIRECT_URL=\"${process.env.POSTGRES_URL_NON_POOLING}\"\n`;
+      }
+      fs.writeFileSync('.env', envContent);
+      console.log('✅ PRISMA_DATABASE_URL detectada/promovida. .env escrito com PRISMA_DATABASE_URL/DATABASE_URL');
+    } catch (err) {
+      console.warn('⚠️  Não foi possível escrever .env a partir de PRISMA_DATABASE_URL');
+    }
+  }
+})();
 
 // Configura DATABASE_URL se não estiver definida
 if (!process.env.DATABASE_URL) {
