@@ -120,7 +120,20 @@ if (!process.env.DATABASE_URL) {
   const original = process.env.DATABASE_URL;
   const normalized = normalizeToPrismaMysql(original);
 
-  if (normalized !== original) {
+  // Se for Postgres, considere compatível e apenas garanta o .env
+  if (original && (original.startsWith('postgres://') || original.startsWith('postgresql://'))) {
+    try {
+      const prismaUrl = process.env.PRISMA_DATABASE_URL || original;
+      let envContent = `DATABASE_URL=\"${original}\"\nPRISMA_DATABASE_URL=\"${prismaUrl}\"\n`;
+      if (process.env.DIRECT_URL) {
+        envContent += `DIRECT_URL=\"${process.env.DIRECT_URL}\"\n`;
+      }
+      fs.writeFileSync('.env', envContent);
+      console.log('✅ DATABASE_URL (Postgres) compatível. .env escrito.');
+    } catch (err) {
+      console.warn('⚠️  Não foi possível escrever .env para Postgres; seguindo assim mesmo');
+    }
+  } else if (normalized !== original) {
     console.log('⚠️  Ajustando DATABASE_URL para o formato aceito pelo Prisma (mysql://)');
     process.env.DATABASE_URL = normalized;
     try {
@@ -131,23 +144,22 @@ if (!process.env.DATABASE_URL) {
       console.warn('⚠️  Não foi possível escrever .env, seguindo com variável de ambiente atual');
     }
   } else if (!normalized.startsWith('mysql://')) {
-    console.warn('⚠️  DATABASE_URL definida, porém não inicia com mysql:// e não pôde ser normalizada. Tentando variáveis DB_*...');
+    // URL não é mysql:// e também não é Postgres; tentar fallback de DB_* apenas em contexto MySQL
+    console.warn('⚠️  DATABASE_URL não é mysql://. Tentando variáveis DB_* como fallback (apenas MySQL)...');
     try {
       const built = buildDatabaseUrl();
       const prismaUrl = normalizeToPrismaMysql(built);
-      // Mantemos DATABASE_URL original e usamos PRISMA_DATABASE_URL para o Prisma
       const envContent = `DATABASE_URL=\"${original}\"\nPRISMA_DATABASE_URL=\"${prismaUrl}\"\n`;
       fs.writeFileSync('.env', envContent);
       console.log('✅ Usando PRISMA_DATABASE_URL construído a partir de DB_* variáveis');
     } catch (e) {
-      console.error('❌ DATABASE_URL inválida e variáveis DB_* insuficientes para construir a URL.');
+      console.error('❌ DATABASE_URL inválida e variáveis DB_* insuficientes para construir a URL (MySQL).');
       console.error('   Valor atual de DATABASE_URL:', original);
       console.error('   Erro ao montar via DB_*:', e.message);
-      console.error('   Dica: defina DATABASE_URL no formato mysql://... ou configure DB_HOST, DB_USER, DB_PASSWORD, DB_NAME.');
       process.exit(1);
     }
   } else {
-    // Está compatível: ainda assim garantimos PRISMA_DATABASE_URL para o Prisma CLI
+    // Está compatível (MySQL)
     try {
       const envContent = `DATABASE_URL=\"${normalized}\"\nPRISMA_DATABASE_URL=\"${normalized}\"\n`;
       fs.writeFileSync('.env', envContent);
